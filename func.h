@@ -9,28 +9,7 @@
 class Functions
 {
 public:
-	class symbolic_function
-	{
-		int dimension=0;
-		std::vector<std::string> variable_names;
-		std::string equation="";
-		std::vector<std::string> single_dim_equations;
-	public:
-		symbolic_function();
-		symbolic_function(std::string);
-		std::string at(int);
-		int get_dimension() { return dimension; };
-		std::string get_equation() { return equation; };
 
-	private:
-		void set_dimension();
-		void set_equation();
-		void set_variable_names();
-		
-		
-		void set_seperable(); 
-		//This is actually going to be very hard to do, need to include a failure case
-	};
 	struct point_function
 	{
 		int dimension;
