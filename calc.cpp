@@ -1,7 +1,11 @@
 #include "calc.h"
 /*This class is inteded to use numerical methods to give a functional definintion of the derivatives and integrals
-current issues...storing the fuctions as vectors of floats, how does one properly then use float indecies?...this might be where the function template would be usefull, create some sort of large vector that allows for a float to be called, then interally convereted to a proper bound (maybe just convert it??) [2^32 limits to 1/2 floationg point precision, and that is a slow vector] [speed this up somehow??]
-Also this will be great for plotting....now how do we do the symbolic calculus?...maybe fitting methods??..Special deriv guesses??...UI problem, java or python's job*/
+current issues...storing the fuctions as vectors of floats, how does one properly then use float indecies?...
+this might be where the function template would be usefull, create some sort of large vector that allows for a float to be called, 
+then interally convereted to a proper bound (maybe just convert it??) [2^32 limits to 1/2 floationg point precision, and that is a slow vector] 
+[speed this up somehow??]
+Also this will be great for plotting....now how do we do the symbolic calculus?...maybe fitting methods??..Special deriv guesses??...
+UI problem, java or python's job*/
 std::vector<double> calc::derivate(Functions::point_function pfunc, Functions::symbolic_function sfunc, std::string var, float boundl, float boundu)
 {
 	Functions::point_function result; 

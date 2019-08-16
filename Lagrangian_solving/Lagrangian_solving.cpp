@@ -2,14 +2,14 @@
 //
 
 #include "stdafx.h"
-#include "C:\Users\Silas Grossberndt\Documents\Visual Studio 2015\Projects\calc.h"
-#include "..\..\func.h"
+#include "..\calc.h"
+#include "..\func.h"
 #include <iostream>
 #include "TH1.h"
 //add a gui wrapper. Maybe do in Mathematica or Python?
 int main()
 {
-	Functions::symbolic_function*  lfunc=new	Functions::symbolic_function(); 
+	Functions::symbolic_function* lfunc = new Functions::symbolic_function;
 	
 	std::string eomorS="";
 	bool full_eom;
