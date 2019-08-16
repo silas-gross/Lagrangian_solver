@@ -1,8 +1,8 @@
 #pragma once
-include<"..\func.h">
-	class symbolic_function
+include<"func.h">
+
+class symbolic_function :public Functions
 	{
-		int dimension=0;
 		std::vector<std::string> variable_names;
 		std::string equation="";
 		std::vector<std::string> single_dim_equations;

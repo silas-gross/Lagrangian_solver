@@ -9,7 +9,9 @@
 class Functions
 {
 public:
-
+	int dimensions=2;
+	std::string input;
+	std::string output;
 	struct point_function
 	{
 		int dimension;
