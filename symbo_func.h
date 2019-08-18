@@ -7,9 +7,9 @@ class symbolic_function :public Functions
 		std::string equation="";
 		std::vector<std::string> single_dim_equations;
 	public:
-		symbolic_function();
-		symbolic_function(std::string);
-		std::string at(int);
+		void symbolic_function();
+		void symbolic_function(std::string);
+		void at(int);
 		int get_dimension() { return dimension; };
 		std::string get_equation() { return equation; };
 		std::vector<std::string> get_variable_names() { return variable_names; };
