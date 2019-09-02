@@ -1,5 +1,5 @@
 #pragma once
-include<"func.h">
+#include "func.h" 
 
 class symbolic_function :public Functions
 	{
@@ -18,7 +18,7 @@ class symbolic_function :public Functions
 		void set_dimension();
 		void set_equation();
 		void set_variable_names();
-			
+		void set_single_dim_equations();
 		void set_seperable(); 
 		//This is actually going to be very hard to do, need to include a failure case
 	};
