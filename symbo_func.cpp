@@ -1,5 +1,6 @@
 #include "symbo_func.h"
 #include <sstream>
+
 void symbolic_function::at(int)
 {
 
@@ -19,5 +20,7 @@ void symbolic_fuction::symbolic_function(std::string a)
 void symbolic_function::set_variable_names()
 {
 	std::string a = this->equation;
+	std::vector <std::string> variables;
+	
 	
 }
