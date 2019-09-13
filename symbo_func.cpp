@@ -21,6 +21,10 @@ void symbolic_function::set_variable_names()
 {
 	std::string a = this->equation;
 	std::vector <std::string> variables;
-	
+	std::stringstream sep;
+	while ()
+	{
+
+	}
 	
 }
