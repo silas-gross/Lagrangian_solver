@@ -1,8 +1,7 @@
 #pragma once
 #include "func.h" 
 
-class symbolic_function :public Functions
-	{
+class symbolic_function : public Functions {
 		std::vector<std::string> variable_names;
 		std::string equation="";
 		std::vector<std::string> single_dim_equations;
@@ -21,4 +20,4 @@ class symbolic_function :public Functions
 		void set_single_dim_equations();
 		void set_seperable(); 
 		//This is actually going to be very hard to do, need to include a failure case
-	};
+};
