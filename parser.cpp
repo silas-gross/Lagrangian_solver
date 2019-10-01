@@ -1,17 +1,74 @@
 #include <iostream>
 #include <algorithm>
+#include <math.h>
 #include <vector>
 #include <string>
 #include "parser.h"
 
-
-// A wrapper for the token string and the type of token it is
+// A wrapper for the token string and the type of token it is, as well as if it should be negated or not
+// Incorperating the negation into the token makes it easier to simplify the grammar early on
 struct Parser::Token {
 	std::string value;
 	TokenType type;
+	bool negate = false;
 
 	std::string toString(){
-		return value;
+		if (type == TokenType::Num || type == TokenType::Var)
+			return (negate ? "-" : "") + value;
+
+		std::string types[] = {"^", "*", "/", "+", "-", "(", ")"};
+		return types[type];
+	}
+
+	double numericalValue(double varVal = 0.0){
+		double val = varVal;
+		if (type == TokenType::Num)
+			val = std::stod(value);
+		return negate ? -1 * val : val;
+	}
+};
+
+struct Parser::Node {
+	Token token;
+	Node *lChild;
+	Node *rChild;
+
+	Node(Token t, Node *l, Node *r): token(t), lChild(l), rChild(r){}
+
+	std::string toString(){
+		if (lChild == 0 || rChild == 0)
+			return "{" + token.toString() + "}";
+		return "[" + lChild->toString() + " " + token.toString()  + " " + rChild->toString() + "]";
+	}
+
+	bool isOpLeaf(){
+		if (lChild != 0 || rChild != 0)
+			return false;
+
+		// This is kinda gross as it depends on the order of the definitions of the TokenType enum, but it works
+		// @TODO: Make it less gross
+		return token.type < 5;
+	}
+
+	double evaluate(double varVal){
+		if (token.type == TokenType::Num || token.type == TokenType::Var)
+			return token.numericalValue(varVal);
+
+		double leftVal = lChild->evaluate(varVal);
+		double rightVal = rChild->evaluate(varVal);
+
+		switch (token.type){
+			case (TokenType::Pow):
+				return pow(leftVal, rightVal);
+			case (TokenType::Mult):
+				return leftVal * rightVal;
+			case (TokenType::Div):
+				return leftVal / rightVal;
+			case (TokenType::Add):
+				return leftVal + rightVal;
+			case (TokenType::Sub):
+				return leftVal - rightVal;
+		}
 	}
 };
 
@@ -19,16 +76,13 @@ struct Parser::Token {
 // Its efficient enough tho
 bool Parser::isNumeric(std::string &s){
 	bool decimalFound = false;
-	for (std::string::size_type i = 0; i < s.size(); i++){
+	for (auto c = s.begin(); c != s.end(); c++){
 		// Digits are always good
-		if (std::isdigit(s[i]))
-			continue;
-		// Negatives (-) are okay if its the first character
-		if (s[i] == '-' && i == 0)
+		if (std::isdigit(*c))
 			continue;
 
 		// Deimals are okay only once
-		if (s[i] == '.' && !decimalFound){
+		if (*c == '.' && !decimalFound){
 			decimalFound = true;
 			continue;
 		}
@@ -83,6 +137,7 @@ void Parser::tokenize(std::string &eq, char &var, std::vector<Token> &tokens){
 //	xy  =>  x*y
 //	x(  =>  x*(
 //	)x  =>  )*x
+//	[+-*/]-x  => [+-*/]x_negated
 // Rather than inserting into tokens, we'll add to a new list to avoid repeated O(n) insertions
 // Precondition: tokens should be nonempty
 void Parser::verbosifyTokens(std::vector<Token> &tokens, std::vector<Token> &verboseTokens){
@@ -105,10 +160,139 @@ void Parser::verbosifyTokens(std::vector<Token> &tokens, std::vector<Token> &ver
 		else if (t1 == TokenType::RParen && (t2 == TokenType::Num || t2 == TokenType::Var))
 			insertMult = true;
 
+
 		if (insertMult)
 			verboseTokens.push_back(Token{"*", TokenType::Mult});
-		verboseTokens.push_back(tokens.at(c));
+
+		// If this token is a Sub, potentially negate the next token and ignore this one
+		if (t2 == TokenType::Sub && (t1 == TokenType::Add || t1 == TokenType::Sub || t1 == TokenType::Mult || t1 == TokenType::Div)){
+			tokens.erase(tokens.begin() + c);
+			tokens.at(c).negate = true;
+			c--;
+		} else
+			verboseTokens.push_back(tokens.at(c));
+
 	}
+}
+
+Parser::Node Parser::buildTree(std::vector<Token> &tokens){
+	// Convert the list of tokens to a list of Leaves, then recursively simplify to a tree
+	std::vector<Node*> nodes;
+//	std::for_each(tokens.begin(), tokens.end(), [nodes](Token &token){
+//		Leaf leaf{token};
+//		nodes.push_back(leaf);
+//	});
+	for (int c = 0; c<tokens.size(); c++){
+		Node *leaf = new Node(tokens.at(c), 0, 0);
+		nodes.push_back(leaf);
+	}
+
+	Node *root = simplifyTree(nodes, 0);
+	return *root;
+}
+
+Parser::Node* Parser::simplifyTree(std::vector<Node*> &nodes, int level){
+	std::cout << std::endl << std::string(level, ' ') << "|"  << "simplifyTree(  ";
+	for (int c =0; c<nodes.size(); c++)
+		std::cout << nodes.at(c)->toString() << " ";
+	std::cout << "  )  (size = " << nodes.size() << ")" << std::endl;
+
+
+	// Base case: If the list of nodes is only 1 item long, return this
+	//		Or, if it is just LParen_Node, Node, RParen_Node, return the center node
+	if (nodes.size() == 1){
+		std::cout << std::string(level, ' ') << "|"  << "Base case (root reached)" << std::endl;
+		return nodes.at(0);
+	}
+
+	if (nodes.size() == 3 && nodes.at(0)->token.type == TokenType::LParen && nodes.at(2)->token.type == TokenType::RParen){
+		std::cout << std::string(level, ' ') << "|"  << "Base case (paren'd root reached)" << std::endl;
+		return nodes.at(1);
+	}
+
+	// Otherwise, follow pemdas to simplify a Node Node Node relationship to a single node
+
+	// First, find the deepest set of parenthesis
+	int parenLevel = 0;
+	int deepestLevel = 0;
+	int deepestStartPos = -1;
+	int deepestEndPos = -1;
+	int opPos[] = {-1, -1, -1, -1, -1};
+	for (int c = 0; c < nodes.size(); c++){
+		if (nodes.at(c)->token.type == TokenType::LParen){
+			parenLevel++;
+			if (parenLevel >= deepestLevel){
+				deepestLevel = parenLevel;
+				deepestStartPos = c;
+			}
+		}
+
+		// If this RParen is closing the deepest paren, save its position
+		// Otherwise, if its just any other RParen, just decrease the level
+		if (nodes.at(c)->token.type == TokenType::RParen && parenLevel == deepestLevel){
+			parenLevel--;
+			deepestEndPos = c;
+		} else if (nodes.at(c)->token.type == TokenType::RParen)
+			parenLevel--;
+
+		// If we are at a 0 paren level and the current node is a leaf op node, record its position IF a position hasn't already been recorded (to keep the left to right order)
+		if (parenLevel == 0 && nodes.at(c)->isOpLeaf() && opPos[nodes.at(c)->token.type] == -1)
+			opPos[nodes.at(c)->token.type] = c;
+	}
+
+	std::cout << std::string(level, ' ') << "|"  << "Deepest level: " << deepestLevel << " start: " << deepestStartPos << " end: " << deepestEndPos << std::endl;
+
+	// If the deepest paren level is not 0, simplify this parenthesis set to a single node recursively
+	if (deepestLevel > 0){
+		auto subStart = nodes.begin() + deepestStartPos;
+		auto subEnd = nodes.begin() + deepestEndPos + 1;
+
+		std::vector<Node*> subEq(subStart+1, subEnd-1);
+		Node *subRoot = simplifyTree(subEq, level+1);
+
+		nodes.erase(subStart, subEnd);
+		nodes.insert(subStart, subRoot);
+
+		std::cout << std::string(level, ' ') << "|" << "Starting simplify tree on new nodes (paren)" << std::endl;
+		Node *root = simplifyTree(nodes, level+1);
+		std::cout << std::string(level, ' ') << "|" << "Traced (paren)" << std::endl;
+		std::cout << std::string(level, ' ') << "|"  << "Following paren back: " << root->toString() << std::endl;
+		return root;
+	}
+
+	// Otherwise, search in order of emdas for other operations
+	// Find the first non-negative operation index to simplify that sub equation
+	for (int c = 0; c < 5; c++){
+		if (opPos[c] == -1)
+			continue;
+
+		std::cout << std::string(level, ' ') << "|"  << "Identified " << c << " as the first op with position " << opPos[c] << std::endl;
+
+		Token opToken = nodes.at(opPos[c])->token;
+//		Node lChild = nodes[opPos[c]-1];
+//		Node rChild = nodes[opPos[c]+1];
+		nodes.at(opPos[c])->lChild = nodes.at(opPos[c]-1);
+		nodes.at(opPos[c])->rChild = nodes.at(opPos[c]+1);
+		std::cout << std::string(level, ' ') << "|"  << "subRoot: " << nodes.at(opPos[c])->toString() << std::endl;
+
+		nodes.erase(nodes.begin() + opPos[c] + 1);
+		nodes.erase(nodes.begin() + opPos[c] - 1);
+
+		std::cout << std::string(level, ' ') << "|"  << "erased(  ";
+		for (int c =0; c<nodes.size(); c++)
+			std::cout << nodes.at(c)->toString() << " ";
+		std::cout << "  )" << std::endl;
+
+		std::cout << std::string(level, ' ') << "|" << "Starting simplify tree on new nodes (op)" << std::endl;
+		Node *root = simplifyTree(nodes, level+1);
+		std::cout << std::string(level, ' ') << "|" << "Traced (op)" << std::endl;
+		std::cout << std::string(level, ' ') << "|"  << "Following op back: " << root->toString() << std::endl;
+		return root;
+	}
+
+	// Really shouldn't ever get to hear
+	// If so, something is wrong and I don't know what yet
+	std::cout << "Uh oh, recursion shouldn't get here" << std::endl;
 }
 
 
@@ -118,9 +302,11 @@ void Parser::parse(std::string &eq, char &var){
 //		// @TODO: This will be a pretty easy thing, I just don't have wifi for any docs right now or memory of c++'s char methods
 //	}
 
+	// Turn the string into a list of tokens, directly as written in the equation
 	std::vector<Token> tokens;
 	Parser::tokenize(eq, var, tokens);
 
+	// Verbosify and clean the token list by adding implicit operations and cleaning up ambiguous negatives
 	std::vector<Token> vbTokens;
 	Parser::verbosifyTokens(tokens, vbTokens);
 
@@ -129,4 +315,20 @@ void Parser::parse(std::string &eq, char &var){
 	});
 
 	std::cout << std::endl;
+
+	// Start building the parse tree
+	Node root = Parser::buildTree(vbTokens);
+	std::cout << root.toString() << std::endl;
+	std::cout << root.evaluate(4.0) << std::endl;
+
+//	Leaf leaf0(vbTokens[0]);
+//	Leaf leaf1(vbTokens[1]);
+//	Leaf leaf2(vbTokens[2]);
+//	Leaf leaf3(vbTokens[3]);
+//	Leaf leaf4(vbTokens[4]);
+//	std::vector<Node> nodes = {leaf0, leaf1, leaf2, leaf3, leaf4};
+//
+//	for (int c=0; c<nodes.size(); c++)
+//		std::cout << nodes[c].toString();
+//	std::cout << std::endl;
 }
