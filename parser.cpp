@@ -262,37 +262,52 @@ Parser::Node* Parser::simplifyTree(std::vector<Node*> &nodes, int level){
 
 	// Otherwise, search in order of emdas for other operations
 	// Find the first non-negative operation index to simplify that sub equation
-	for (int c = 0; c < 5; c++){
-		if (opPos[c] == -1)
-			continue;
+	// Check first opPos[0] (^), then opPos[1] (*) and opPos[2] (/) at the same time (order by lesser), then opPos[3] (+) and opPos[4] (-) at the same time (order by lesser)
+	// This can probably be made a little bit more beautiful, but its quick and dirty right now
+	int pos = -1;
+	// Check exponents
+	if (opPos[0] > 0)
+		pos = opPos[0];
+	// Check multiplication and division
+	else if (opPos[1] > 0 && opPos[2] == -1)
+		pos = opPos[1];
+	else if (opPos[1] == -1 && opPos[2] > 0)
+		pos = opPos[2];
+	else if (opPos[1] > 0 && opPos[2] > 0)
+		pos = std::min(opPos[1], opPos[2]);
+	// Check addition and subtraction
+	else if (opPos[3] > 0 && opPos[4] == -1)
+		pos = opPos[3];
+	else if (opPos[3] == -1 && opPos[4] > 0)
+		pos = opPos[4];
+	else if (opPos[3] > 0 && opPos[4] > 0)
+		pos = std::min(opPos[3], opPos[4]);
 
-		std::cout << std::string(level, ' ') << "|"  << "Identified " << c << " as the first op with position " << opPos[c] << std::endl;
-
-		Token opToken = nodes.at(opPos[c])->token;
-//		Node lChild = nodes[opPos[c]-1];
-//		Node rChild = nodes[opPos[c]+1];
-		nodes.at(opPos[c])->lChild = nodes.at(opPos[c]-1);
-		nodes.at(opPos[c])->rChild = nodes.at(opPos[c]+1);
-		std::cout << std::string(level, ' ') << "|"  << "subRoot: " << nodes.at(opPos[c])->toString() << std::endl;
-
-		nodes.erase(nodes.begin() + opPos[c] + 1);
-		nodes.erase(nodes.begin() + opPos[c] - 1);
-
-		std::cout << std::string(level, ' ') << "|"  << "erased(  ";
-		for (int c =0; c<nodes.size(); c++)
-			std::cout << nodes.at(c)->toString() << " ";
-		std::cout << "  )" << std::endl;
-
-		std::cout << std::string(level, ' ') << "|" << "Starting simplify tree on new nodes (op)" << std::endl;
-		Node *root = simplifyTree(nodes, level+1);
-		std::cout << std::string(level, ' ') << "|" << "Traced (op)" << std::endl;
-		std::cout << std::string(level, ' ') << "|"  << "Following op back: " << root->toString() << std::endl;
-		return root;
+	if (pos == -1){
+		// Really shouldn't ever get to hear
+		// If so, something is wrong and I don't know what yet
+		std::cout << "Uh oh, recursion shouldn't get here" << std::endl;
+		return NULL;
 	}
 
-	// Really shouldn't ever get to hear
-	// If so, something is wrong and I don't know what yet
-	std::cout << "Uh oh, recursion shouldn't get here" << std::endl;
+	Token opToken = nodes.at(pos)->token;
+	nodes.at(pos)->lChild = nodes.at(pos-1);
+	nodes.at(pos)->rChild = nodes.at(pos+1);
+	std::cout << std::string(level, ' ') << "|"  << "subRoot: " << nodes.at(pos)->toString() << std::endl;
+
+	nodes.erase(nodes.begin() + pos + 1);
+	nodes.erase(nodes.begin() + pos - 1);
+
+	std::cout << std::string(level, ' ') << "|"  << "erased(  ";
+	for (int c =0; c<nodes.size(); c++)
+		std::cout << nodes.at(c)->toString() << " ";
+	std::cout << "  )" << std::endl;
+
+	std::cout << std::string(level, ' ') << "|" << "Starting simplify tree on new nodes (op)" << std::endl;
+	Node *root = simplifyTree(nodes, level+1);
+	std::cout << std::string(level, ' ') << "|" << "Traced (op)" << std::endl;
+	std::cout << std::string(level, ' ') << "|"  << "Following op back: " << root->toString() << std::endl;
+	return root;
 }
 
 
